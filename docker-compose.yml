@@ -1,0 +1,17 @@
+
+services:
+   db:
+    build: ./DB
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: container_monitoring
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      
+
+
+volumes:
+  pgdata:
