@@ -10,6 +10,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - docker_network
       
   backend:
     build: ./Backend      
@@ -22,9 +24,26 @@ services:
       DB_PORT: ${DB_PORT}      
       DB_USER: ${POSTGRES_USER}  
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_NAME: ${POSTGRES_DB}
-      PORT: ${BACKEND_PORT}          
+      DB_NAME: ${POSTGRES_DB} 
+      PORT: ${BACKEND_PORT}       
+    networks:
+      - docker_network   
 
+  frontend:
+    build:
+      context: ./Frontend
+      args:
+        REACT_APP_BACKEND_URL: "http://host.docker.internal:${BACKEND_PORT}"
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - docker_network
+    
+networks:
+  docker_network:
+    driver: bridge
 
 volumes:
   pgdata:
