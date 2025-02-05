@@ -13,6 +13,8 @@ var ErrContainerNotFound = errors.New("container not found")
 var ErrPingLogNotFound = errors.New("pingLog not found")
 var ErrPingLogNotSuccessful = errors.New("pingLog is not successful")
 var ErrPingLogDNBContainer = errors.New("The provided PingLog does not belong to the specified container")
+var ErrFailedUpdContainer = errors.New("failed to update container")
+var ErrFailedCrtPinglog = errors.New("failed to create PingLog")
 
 type Service struct {
 	db *gorm.DB
@@ -80,7 +82,7 @@ func (s *Service) PatchContainerLastSuccessfulPing(req models.UpdateContainerReq
 
 	container.LastSuccessfulPingId = uint(req.LastSuccessfulPingId)
 	if err := s.db.Save(&container).Error; err != nil {
-		return container, errors.New("failed to update container")
+		return container, ErrFailedUpdContainer
 	}
 	return container, nil
 }
@@ -95,7 +97,7 @@ func (s *Service) CreatePingLog(pingLog models.PingLog) error {
 	}
 	fmt.Println(container)
 	if err := s.db.Create(&pingLog).Error; err != nil {
-		return errors.New("failed to create PingLog")
+		return ErrFailedCrtPinglog
 	}
 	return nil
 }

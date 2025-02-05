@@ -6,6 +6,7 @@ import (
 	"backend/internal/app/service"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/driver/postgres"
@@ -22,7 +23,14 @@ type App struct {
 func New() (*App, error) {
 	a := &App{}
 
-	dsn := "host=localhost user=postgres password=postgres dbname=container_monitoring port=5435"
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_PORT"),
+	)
+
 	var err error
 	a.db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -41,8 +49,13 @@ func New() (*App, error) {
 }
 
 func (a *App) Run() error {
-	fmt.Println("Server running")
-	if err := a.echo.Start(":8080"); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	fmt.Printf("Server running on port %s\n", port)
+
+	if err := a.echo.Start(":" + port); err != nil {
 		log.Fatal(err)
 		return err
 	}

@@ -32,11 +32,7 @@ func (e *Endpoint) GetContainer(c echo.Context) error {
 	}
 	container, err := e.s.GetContainerByID(id)
 	if err != nil {
-		if err == service.ErrContainerNotFound {
-			return c.JSON(http.StatusNotFound, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		} else {
-			return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		}
+		return mapServiceErrorToHTTP(c, err)
 	}
 	return c.JSON(http.StatusOK, container)
 }
@@ -48,12 +44,7 @@ func (e *Endpoint) GetContainerLastSuccessfulPing(c echo.Context) error {
 	}
 	pingLog, err := e.s.GetContainerLastSuccessfulPing(id)
 	if err != nil {
-		switch err {
-		case service.ErrContainerNotFound, service.ErrPingLogNotFound:
-			return c.JSON(http.StatusNotFound, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		default:
-			return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		}
+		return mapServiceErrorToHTTP(c, err)
 	}
 	return c.JSON(http.StatusOK, pingLog)
 }
@@ -65,14 +56,7 @@ func (e *Endpoint) PatchContainerLastSuccessfulPing(c echo.Context) error {
 	}
 	container, err := e.s.PatchContainerLastSuccessfulPing(req)
 	if err != nil {
-		switch err {
-		case service.ErrContainerNotFound, service.ErrPingLogNotFound:
-			return c.JSON(http.StatusNotFound, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		case service.ErrPingLogNotSuccessful, service.ErrPingLogDNBContainer:
-			return c.JSON(http.StatusBadRequest, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		default:
-			return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		}
+		return mapServiceErrorToHTTP(c, err)
 	}
 	return c.JSON(http.StatusOK, container)
 }
@@ -83,11 +67,22 @@ func (e *Endpoint) PostPingLog(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Code: http.StatusBadRequest, Message: "Invalid request body " + err.Error()})
 	}
 	if err := e.s.CreatePingLog(pingLog); err != nil {
-		if err == service.ErrContainerNotFound {
-			return c.JSON(http.StatusNotFound, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		} else {
-			return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-		}
+		return mapServiceErrorToHTTP(c, err)
 	}
 	return c.JSON(http.StatusCreated, pingLog)
+}
+
+func mapServiceErrorToHTTP(c echo.Context, err error) error {
+	switch err {
+	case service.ErrContainerNotFound, service.ErrPingLogNotFound:
+		return c.JSON(http.StatusNotFound, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
+	case service.ErrPingLogNotSuccessful, service.ErrPingLogDNBContainer:
+		return c.JSON(http.StatusUnprocessableEntity, models.ErrorResponse{Code: http.StatusUnprocessableEntity, Message: err.Error()})
+	case service.ErrFailedCrtPinglog:
+		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to create ping log. Please try again later."})
+	case service.ErrFailedUpdContainer:
+		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to update container. Please try again later."})
+	default:
+		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusInternalServerError, Message: "Unexpected error occurred."})
+	}
 }
