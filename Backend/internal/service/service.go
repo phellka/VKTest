@@ -1,7 +1,7 @@
 package service
 
 import (
-	"backend/internal/app/models"
+	"backend/internal/models"
 	"errors"
 	"fmt"
 	"time"
@@ -11,8 +11,6 @@ import (
 
 var ErrContainerNotFound = errors.New("container not found")
 var ErrPingLogNotFound = errors.New("pingLog not found")
-var ErrPingLogNotSuccessful = errors.New("pingLog is not successful")
-var ErrPingLogDNBContainer = errors.New("The provided PingLog does not belong to the specified container")
 var ErrFailedUpdContainer = errors.New("failed to update container")
 var ErrFailedCrtPinglog = errors.New("failed to create PingLog")
 
@@ -27,6 +25,19 @@ func New(database *gorm.DB) *Service {
 func (s *Service) GetContainers() ([]models.Container, error) {
 	var containers []models.Container
 	result := s.db.Find(&containers)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return containers, nil
+}
+
+func (s *Service) GetContainersWithLastPing() ([]models.ContainerWithPingTime, error) {
+	var containers []models.ContainerWithPingTime
+
+	result := s.db.Table("containers AS c").
+		Select("c.*, pl.timestamp").
+		Joins("LEFT JOIN (SELECT MAX(timestamp) AS timestamp, container_id FROM ping_logs WHERE success = true GROUP BY container_id) AS pl ON c.id = pl.container_id").
+		Scan(&containers)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -61,30 +72,6 @@ func (s *Service) GetContainerLastSuccessfulPing(id int) (models.PingLog, error)
 		return models.PingLog{}, result.Error
 	}
 	return pingLog, nil
-}
-
-func (s *Service) PatchContainerLastSuccessfulPing(req models.UpdateContainerRequest) (models.Container, error) {
-	var container models.Container
-	if err := s.db.First(&container, req.ContainerID).Error; err != nil {
-		return container, ErrContainerNotFound
-	}
-
-	var pingLog models.PingLog
-	if err := s.db.First(&pingLog, req.LastSuccessfulPingId).Error; err != nil {
-		return container, ErrPingLogNotFound
-	}
-	if pingLog.ContainerId != container.ID {
-		return container, ErrPingLogDNBContainer
-	}
-	if !pingLog.Success {
-		return container, ErrPingLogNotSuccessful
-	}
-
-	container.LastSuccessfulPingId = uint(req.LastSuccessfulPingId)
-	if err := s.db.Save(&container).Error; err != nil {
-		return container, ErrFailedUpdContainer
-	}
-	return container, nil
 }
 
 func (s *Service) CreatePingLog(pingLog models.PingLog) error {

@@ -1,14 +1,15 @@
 package app
 
 import (
-	"backend/internal/app/endpoint"
-	"backend/internal/app/mw"
-	"backend/internal/app/service"
+	"backend/internal/endpoint"
+	"backend/internal/mw"
+	"backend/internal/service"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -43,6 +44,12 @@ func New() (*App, error) {
 	a.echo = echo.New()
 	a.echo.Use(mw.Database(a.db))
 
+	a.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Content-Type", "Authorization"},
+	}))
+
 	a.setupRoutes()
 
 	return a, nil
@@ -64,8 +71,8 @@ func (a *App) Run() error {
 
 func (a *App) setupRoutes() {
 	a.echo.GET("/containers", a.e.GetContainers)
+	a.echo.GET("/containers/with-last-ping", a.e.GetContainersWithLastPing)
 	a.echo.GET("/container", a.e.GetContainer)
 	a.echo.GET("/container/lastsuccessful", a.e.GetContainerLastSuccessfulPing)
 	a.echo.POST("/pinglog", a.e.PostPingLog)
-	a.echo.PATCH("/container", a.e.PatchContainerLastSuccessfulPing)
 }

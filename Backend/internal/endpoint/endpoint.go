@@ -1,8 +1,8 @@
 package endpoint
 
 import (
-	"backend/internal/app/models"
-	"backend/internal/app/service"
+	"backend/internal/models"
+	"backend/internal/service"
 	"net/http"
 	"strconv"
 
@@ -19,6 +19,14 @@ func New(s *service.Service) *Endpoint {
 
 func (e *Endpoint) GetContainers(c echo.Context) error {
 	containers, err := e.s.GetContainers()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusInternalServerError, Message: "Database error " + err.Error()})
+	}
+	return c.JSON(http.StatusOK, containers)
+}
+
+func (e *Endpoint) GetContainersWithLastPing(c echo.Context) error {
+	containers, err := e.s.GetContainersWithLastPing()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusInternalServerError, Message: "Database error " + err.Error()})
 	}
@@ -49,18 +57,6 @@ func (e *Endpoint) GetContainerLastSuccessfulPing(c echo.Context) error {
 	return c.JSON(http.StatusOK, pingLog)
 }
 
-func (e *Endpoint) PatchContainerLastSuccessfulPing(c echo.Context) error {
-	var req models.UpdateContainerRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Code: http.StatusBadRequest, Message: "Invalid request body " + err.Error()})
-	}
-	container, err := e.s.PatchContainerLastSuccessfulPing(req)
-	if err != nil {
-		return mapServiceErrorToHTTP(c, err)
-	}
-	return c.JSON(http.StatusOK, container)
-}
-
 func (e *Endpoint) PostPingLog(c echo.Context) error {
 	var pingLog models.PingLog
 	if err := c.Bind(&pingLog); err != nil {
@@ -76,8 +72,6 @@ func mapServiceErrorToHTTP(c echo.Context, err error) error {
 	switch err {
 	case service.ErrContainerNotFound, service.ErrPingLogNotFound:
 		return c.JSON(http.StatusNotFound, models.ErrorResponse{Code: http.StatusNotFound, Message: err.Error()})
-	case service.ErrPingLogNotSuccessful, service.ErrPingLogDNBContainer:
-		return c.JSON(http.StatusUnprocessableEntity, models.ErrorResponse{Code: http.StatusUnprocessableEntity, Message: err.Error()})
 	case service.ErrFailedCrtPinglog:
 		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Code: http.StatusInternalServerError, Message: "Failed to create ping log. Please try again later."})
 	case service.ErrFailedUpdContainer:
