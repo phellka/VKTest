@@ -1,10 +1,14 @@
 package config
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
 const (
-	ServerURL      = "http://localhost:8080"
 	HTTPTimeout    = 5 * time.Second
-	UpdateInterval = 30 * time.Second
-	PingInterval   = 5 * time.Second
+	UpdateInterval = 100 * time.Second
+	PingInterval   = 45 * time.Second
 )
+
+var ServerURL = os.Getenv("BACKEND_URL")

@@ -41,6 +41,16 @@ services:
     networks:
       - docker_network
     
+  pinger:
+    build:
+      context: ./pinger
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: "http://backend:${BACKEND_PORT}"    
+    networks:
+      - docker_network
+
 networks:
   docker_network:
     driver: bridge
