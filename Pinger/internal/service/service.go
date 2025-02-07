@@ -1,79 +1,155 @@
 package service
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+	"log"
 	"net/http"
 	"pinger/internal/config"
 	"pinger/internal/models"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	probing "github.com/prometheus-community/pro-bing"
+	"github.com/streadway/amqp"
 )
 
 type Service struct {
-	client     *http.Client
-	containers []models.Container
-	mutex      sync.Mutex
+	client                 *http.Client
+	containers             []models.Container
+	mutex                  sync.Mutex
+	amqpChannelPingLogs    *amqp.Channel
+	channelPingLogsMutex   sync.Mutex
+	amqpChannelContainers  *amqp.Channel
+	channelContainersMutex sync.Mutex
 }
 
-func NewService() *Service {
+func NewService(amqpChannelPingLogs *amqp.Channel, amqpChannelContainers *amqp.Channel) *Service {
 	return &Service{
-		client: &http.Client{Timeout: config.HTTPTimeout},
+		client:                &http.Client{Timeout: config.HTTPTimeout},
+		amqpChannelPingLogs:   amqpChannelPingLogs,
+		amqpChannelContainers: amqpChannelContainers,
 	}
 }
 
 func (s *Service) FetchContainers() error {
-	resp, err := s.client.Get(config.ServerURL + "/containers")
+	s.channelContainersMutex.Lock()
+	defer s.channelContainersMutex.Unlock()
+	corrID := uuid.New().String()
+
+	replyQueue, err := s.amqpChannelPingLogs.QueueDeclare(
+		"",
+		false,
+		true,
+		false,
+		false,
+		nil,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to fetch containers: %w", err)
+		return fmt.Errorf("failed to declare reply queue: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected server response code: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
+	msgs, err := s.amqpChannelPingLogs.Consume(
+		replyQueue.Name,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
 	if err != nil {
-		return fmt.Errorf("error reading response body: %w", err)
+		return fmt.Errorf("failed to consume from reply queue: %w", err)
 	}
 
-	var containers []models.Container
-	if err := json.Unmarshal(body, &containers); err != nil {
-		return fmt.Errorf("error parsing JSON: %w", err)
+	requestQueue, err := s.amqpChannelPingLogs.QueueDeclare(
+		config.ContainersRequestQueueName,
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare a queue: %w", err)
+	}
+	err = s.amqpChannelPingLogs.Publish(
+		"",
+		requestQueue.Name,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:   "application/json",
+			Body:          []byte(fmt.Sprintf(`{"request": "get_containers", "corrID": "%s"}`, corrID)),
+			ReplyTo:       replyQueue.Name,
+			CorrelationId: corrID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 
-	s.mutex.Lock()
-	s.containers = containers
-	s.mutex.Unlock()
+	timeout := time.After(config.UpdateWait)
 
-	return nil
+	for {
+		select {
+		case msg := <-msgs:
+			if msg.CorrelationId == corrID {
+				var containers []models.Container
+				if err := json.Unmarshal(msg.Body, &containers); err != nil {
+					return fmt.Errorf("failed to unmarshal containers response: %w", err)
+				}
+				_, err := s.amqpChannelPingLogs.QueueDelete(replyQueue.Name, false, false, false)
+				if err != nil {
+					log.Printf("failed to delete reply queue: %v", err)
+				}
+				s.mutex.Lock()
+				s.containers = containers
+				s.mutex.Unlock()
+				return nil
+			}
+		case <-timeout:
+			_, err := s.amqpChannelPingLogs.QueueDelete(replyQueue.Name, false, false, false)
+			if err != nil {
+				log.Printf("failed to delete reply queue: %v", err)
+			}
+			return fmt.Errorf("timeout waiting for response")
+		}
+	}
 }
 
-func (s *Service) SendPingLog(pingLog models.PostPingLog) error {
+func (s *Service) SendPingLogToQueue(pingLog models.PostPingLog) error {
+	s.channelPingLogsMutex.Lock()
+	defer s.channelPingLogsMutex.Unlock()
+	q, err := s.amqpChannelPingLogs.QueueDeclare(
+		config.PingLogsQueueName,
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare a queue: %w", err)
+	}
+
 	jsonPingLog, err := json.Marshal(pingLog)
 	if err != nil {
-		return fmt.Errorf("error serializing JSON: %w", err)
+		return fmt.Errorf("failed to marshal ping log: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", config.ServerURL+"/pinglog", bytes.NewBuffer(jsonPingLog))
+	err = s.amqpChannelPingLogs.Publish(
+		"",
+		q.Name,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        jsonPingLog,
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("error creating HTTP request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("error executing HTTP request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("server returned unexpected status: %d", resp.StatusCode)
+		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
 	return nil

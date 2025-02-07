@@ -3,7 +3,6 @@ package service
 import (
 	"backend/internal/models"
 	"errors"
-	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -82,7 +81,6 @@ func (s *Service) CreatePingLog(pingLog models.PingLog) error {
 	if err := s.db.First(&container, pingLog.ContainerId).Error; err != nil {
 		return ErrContainerNotFound
 	}
-	fmt.Println(container)
 	if err := s.db.Create(&pingLog).Error; err != nil {
 		return ErrFailedCrtPinglog
 	}

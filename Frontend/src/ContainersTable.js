@@ -32,10 +32,11 @@ const ContainersTable = () => {
     axios
       .get("/api/containers/with-last-ping")
       .then(async (response) => {
-        const updatedContainers = response.data.map((container) => ({
+        const updatedContainers = response.data?.map((container) => ({
           ...container,
-          lastSuccessfulPingDate:  formatDate(container.Timestamp),
-        }));
+          lastSuccessfulPingDate: formatDate(container.Timestamp),
+        })) || [];
+        
         setContainers(updatedContainers);
         setLoading(false);
       })
@@ -48,8 +49,19 @@ const ContainersTable = () => {
 
   if (loading) return <div>Загрузка...</div>;
 
-
   if (error) return <div>{error}</div>;
+
+  if (containers.length === 0) {
+    return (
+      <div className="container mt-4">
+        <h1>Список контейнеров</h1>
+        <div className="mb-4">
+          <strong>Текущая дата и время UTC:</strong> {getCurrentDateTime()}
+        </div>
+        <div>Контейнеры не найдены.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mt-4">
@@ -67,7 +79,7 @@ const ContainersTable = () => {
           </tr>
         </thead>
         <tbody>
-        {containers.map((container) => {
+          {containers.map((container) => {
             const rowClass = container.lastSuccessfulPingDate ? 'table-success' : 'table-danger';
             return (
               <tr key={container.ID} className={rowClass}>

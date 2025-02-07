@@ -1,7 +1,7 @@
 
 services:
   db:
-    build: ./DB
+    build: ./DB/demo
     restart: always
     ports:
       - "5435:${DB_PORT}"
@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdatademo:/var/lib/postgresql/data
     networks:
       - docker_network
     healthcheck:
@@ -31,7 +31,7 @@ services:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
     volumes:
-      - rabbitdata:/var/lib/rabbitmq/data
+      - rabbitdatademo:/var/lib/rabbitmq/data
     networks:
       - docker_network
     healthcheck:
@@ -39,7 +39,6 @@ services:
       interval: 30s
       timeout: 30s
       retries: 3
-
 
   backend:
     build: ./Backend      
@@ -49,7 +48,7 @@ services:
       db:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy   
+        condition: service_healthy          
     environment:
       DB_HOST: db         
       DB_PORT: ${DB_PORT}      
@@ -95,5 +94,5 @@ networks:
     driver: bridge
 
 volumes:
-  pgdata:
-  rabbitdata:
+  pgdatademo:
+  rabbitdatademo:

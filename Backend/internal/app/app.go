@@ -3,6 +3,7 @@ package app
 import (
 	"backend/internal/endpoint"
 	"backend/internal/mw"
+	"backend/internal/queue"
 	"backend/internal/service"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/streadway/amqp"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -19,6 +21,7 @@ type App struct {
 	s    *service.Service
 	echo *echo.Echo
 	db   *gorm.DB
+	qc   *queue.QueueConsumer
 }
 
 func New() (*App, error) {
@@ -52,15 +55,35 @@ func New() (*App, error) {
 
 	a.setupRoutes()
 
+	rabbitURL := os.Getenv("RabbitMQURL")
+	conn, err := amqp.Dial(rabbitURL)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка подключения к RabbitMQ: %w", err)
+	}
+
+	amqpChannelContainers, err := conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("ошибка создания канала RabbitMQ: %w", err)
+	}
+	amqpChannelPingLogs, err := conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("ошибка создания канала RabbitMQ: %w", err)
+	}
+
+	a.qc = queue.NewQueueConsumer(a.s, amqpChannelContainers, amqpChannelPingLogs)
+
 	return a, nil
 }
 
 func (a *App) Run() error {
+	go a.qc.ListenContainersRequest()
+	go a.qc.ListenPingLogs()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	fmt.Printf("Server running on port %s\n", port)
+	log.Printf("Server running on port %s\n", port)
 
 	if err := a.echo.Start(":" + port); err != nil {
 		log.Fatal(err)

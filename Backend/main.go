@@ -2,7 +2,6 @@ package main
 
 import (
 	"backend/internal/app"
-	"fmt"
 	"log"
 	"os"
 )
@@ -19,5 +18,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Server started successfully on port 8080")
+	log.Println("Server started successfully on port 8080")
 }
