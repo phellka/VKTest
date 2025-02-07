@@ -8,7 +8,7 @@ import (
 const (
 	HTTPTimeout    = 5 * time.Second
 	UpdateInterval = 100 * time.Second
-	PingInterval   = 45 * time.Second
+	PingInterval   = 10 * time.Second
 )
 
 var ServerURL = os.Getenv("BACKEND_URL")

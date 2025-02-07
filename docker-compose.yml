@@ -32,8 +32,8 @@ services:
   frontend:
     build:
       context: ./Frontend
-      args:
-        REACT_APP_BACKEND_URL: "http://host.docker.internal:${BACKEND_PORT}"
+    environment:
+      REACT_APP_BACKEND_URL: "http://backend:${BACKEND_PORT}" 
     ports:
       - "80:80"
     depends_on:

@@ -30,7 +30,7 @@ const ContainersTable = () => {
 
   useEffect(() => {
     axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/containers/with-last-ping`)
+      .get("/api/containers/with-last-ping")
       .then(async (response) => {
         const updatedContainers = response.data.map((container) => ({
           ...container,
@@ -40,8 +40,7 @@ const ContainersTable = () => {
         setLoading(false);
       })
       .catch((error) => {
-        setError('Ошибка при загрузке данных');
-        console.log(process.env.REACT_APP_BACKEND_URL);
+        setError(error);
         setLoading(false);
       });
   }, []);
