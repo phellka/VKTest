@@ -112,7 +112,6 @@ func (qc *QueueConsumer) ListenPingLogs() {
 			log.Printf("Error deserializing pingLog: %v", err)
 			continue
 		}
-
 		err := qc.service.CreatePingLog(pingLog)
 		if err != nil {
 			log.Printf("Error saving pingLog: %v", err)

@@ -32,11 +32,20 @@ func (s *Service) GetContainers() ([]models.Container, error) {
 
 func (s *Service) GetContainersWithLastPing() ([]models.ContainerWithPingTime, error) {
 	var containers []models.ContainerWithPingTime
-
 	result := s.db.Table("containers AS c").
-		Select("c.*, pl.timestamp").
-		Joins("LEFT JOIN (SELECT MAX(timestamp) AS timestamp, container_id FROM ping_logs WHERE success = true GROUP BY container_id) AS pl ON c.id = pl.container_id").
+		Select("c.*, pl.timestamp, pl.pingtime").
+		Joins("LEFT JOIN ( " +
+			"SELECT pl.container_id, pl.timestamp, pl.pingtime " +
+			"FROM ping_logs pl " +
+			"INNER JOIN ( " +
+			"SELECT container_id, MAX(timestamp) AS max_timestamp " +
+			"FROM ping_logs " +
+			"WHERE success = true " +
+			"GROUP BY container_id " +
+			") AS max_pl ON pl.container_id = max_pl.container_id AND pl.timestamp = max_pl.max_timestamp " +
+			") AS pl ON c.id = pl.container_id ").
 		Scan(&containers)
+
 	if result.Error != nil {
 		return nil, result.Error
 	}

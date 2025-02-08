@@ -13,4 +13,5 @@ type PostPingLog struct {
 	ContainerId uint      `json:"containerid"`
 	Timestamp   time.Time `json:"timestamp"`
 	Success     bool      `json:"success"`
+	Pingtime    float64   `json:"pingtime"`
 }

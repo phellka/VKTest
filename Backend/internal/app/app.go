@@ -58,16 +58,16 @@ func New() (*App, error) {
 	rabbitURL := os.Getenv("RabbitMQURL")
 	conn, err := amqp.Dial(rabbitURL)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка подключения к RabbitMQ: %w", err)
+		return nil, fmt.Errorf("Connection error to RabbitMQ: %w", err)
 	}
 
 	amqpChannelContainers, err := conn.Channel()
 	if err != nil {
-		return nil, fmt.Errorf("ошибка создания канала RabbitMQ: %w", err)
+		return nil, fmt.Errorf("error creating RabbitMQ channel: %w", err)
 	}
 	amqpChannelPingLogs, err := conn.Channel()
 	if err != nil {
-		return nil, fmt.Errorf("ошибка создания канала RabbitMQ: %w", err)
+		return nil, fmt.Errorf("error creating RabbitMQ channel: %w", err)
 	}
 
 	a.qc = queue.NewQueueConsumer(a.s, amqpChannelContainers, amqpChannelPingLogs)

@@ -28,10 +28,11 @@ const ContainersTable = () => {
     return formatDate(currentDate);
   };
 
-  useEffect(() => {
+  const fetchContainers = () => {
+    setLoading(true);
     axios
       .get("/api/containers/with-last-ping")
-      .then(async (response) => {
+      .then((response) => {
         const updatedContainers = response.data?.map((container) => ({
           ...container,
           lastSuccessfulPingDate: formatDate(container.Timestamp),
@@ -44,7 +45,18 @@ const ContainersTable = () => {
         setError(error);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchContainers();
+
+    const intervalId = setInterval(() => {
+      fetchContainers();
+    }, 15000);
+
+    return () => clearInterval(intervalId); 
   }, []);
+
 
 
   if (loading) return <div>Загрузка...</div>;
@@ -72,9 +84,9 @@ const ContainersTable = () => {
       <table className="table table-bordered table-striped mt-4">
         <thead className="thead-dark">
           <tr>
-            <th>ID</th>
             <th>Имя</th>
             <th>IP</th>
+            <th>Длительность пинга, мс.</th>
             <th>Последняя успешная попытка UTC</th>
           </tr>
         </thead>
@@ -83,9 +95,9 @@ const ContainersTable = () => {
             const rowClass = container.lastSuccessfulPingDate ? 'table-success' : 'table-danger';
             return (
               <tr key={container.ID} className={rowClass}>
-                <td>{container.ID}</td>
                 <td>{container.Name}</td>
                 <td>{container.Ip}</td>
+                <td>{container.Pingtime}</td>
                 <td>{container.lastSuccessfulPingDate ? container.lastSuccessfulPingDate : ''}</td>
               </tr>
             );

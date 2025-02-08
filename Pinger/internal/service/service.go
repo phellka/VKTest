@@ -175,7 +175,7 @@ func (s *Service) PingContainer(container models.Container) (models.PostPingLog,
 	} else {
 		pingLog.Success = true
 	}
-
+	pingLog.Pingtime = pinger.Statistics().AvgRtt.Seconds() * 1000
 	return pingLog, nil
 }
 

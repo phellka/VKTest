@@ -13,6 +13,7 @@ type ContainerWithPingTime struct {
 	Ip        string
 	Name      string
 	Timestamp *time.Time
+	Pingtime  *float64
 }
 
 type PingLog struct {
@@ -20,6 +21,7 @@ type PingLog struct {
 	ContainerId uint      `gorm:"not null"`
 	Timestamp   time.Time `gorm:"default:CURRENT_TIMESTAMP"`
 	Success     bool
+	Pingtime    *float64
 }
 
 type ErrorResponse struct {

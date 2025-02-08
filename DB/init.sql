@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS ping_logs (
     id SERIAL PRIMARY KEY,                       
     container_id INT, 
     timestamp TIMESTAMP DEFAULT now(),           
-    success BOOLEAN NOT NULL                     
+    success BOOLEAN NOT NULL,
+    pingtime DOUBLE PRECISION
 );
 
 ALTER TABLE ping_logs
